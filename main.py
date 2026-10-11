@@ -42,14 +42,22 @@ async def lifespan(app: FastAPI):
     try:
         with SessionLocal() as db:
             mv = db.scalars(select(ModelVersion).where(ModelVersion.is_active).limit(1)).first()
-            if mv and Path(mv.weights_path).exists():
-                classes = (mv.metrics or {}).get("classes", DEFAULT_CLASSES)
-                app.state.classifier = Classifier(mv.weights_path, classes)
-                app.state.model_version_id = mv.id
-                app.state.model_name = mv.name
-                log.info("Loaded model %s", mv.name)
+
+            if mv:
+                # Force absolute path resolution relative to main.py's directory context
+                base_dir = Path(__file__).resolve().parent
+                absolute_weights_path = base_dir / mv.weights_path
+
+                if absolute_weights_path.exists():
+                    classes = (mv.metrics or {}).get("classes", DEFAULT_CLASSES)
+                    app.state.classifier = Classifier(str(absolute_weights_path), classes)
+                    app.state.model_version_id = mv.id
+                    app.state.model_name = mv.name
+                    log.info("Loaded model %s", mv.name)
+                else:
+                    log.warning(f"Active model record found, but weights file missing at: {absolute_weights_path}")
             else:
-                log.warning("No active model found. /predict will return 503.")
+                log.warning("No active model found in the database. /predict will return 503.")
     except Exception:
         log.exception("Startup could not load a model (are the tables created?)")
     yield
@@ -164,7 +172,6 @@ def predict(
         model_version=request.app.state.model_name,
         disclaimer=config.DISCLAIMER,
     )
-
 
 @app.post("/feedback")
 def feedback(

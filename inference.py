@@ -1,6 +1,7 @@
 import torch
 from PIL import Image
 from torchvision import transforms
+from pathlib import Path
 
 DEFAULT_CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
 
@@ -15,7 +16,12 @@ _preprocess = transforms.Compose(
 
 class Classifier:
     def __init__(self, weights_path: str, classes: list[str]):
-        self.model = torch.jit.load(weights_path, map_location="cpu").eval()
+        absolute_path = Path(weights_path).resolve()
+
+        if not absolute_path.exists():
+            raise FileNotFoundError(f"Model weight file not found at: {absolute_path}")
+
+        self.model = torch.jit.load(str(absolute_path), map_location="cpu").eval()
         self.classes = classes
 
     @torch.no_grad()
