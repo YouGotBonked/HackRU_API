@@ -67,9 +67,9 @@ app = FastAPI(title="Skin Lesion Classifier API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:3000/"],  # your React origin
+    allow_methods=[""],
+    allow_headers=[""],
 )
 
 
