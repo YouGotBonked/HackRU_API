@@ -44,7 +44,6 @@ async def lifespan(app: FastAPI):
             mv = db.scalars(select(ModelVersion).where(ModelVersion.is_active).limit(1)).first()
 
             if mv:
-                # Force absolute path resolution relative to main.py's directory context
                 base_dir = Path(__file__).resolve().parent
                 absolute_weights_path = base_dir / mv.weights_path
 

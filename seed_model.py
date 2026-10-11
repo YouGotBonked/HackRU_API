@@ -1,25 +1,26 @@
-from db import SessionLocal
-from models import ModelVersion
-
+from db import SessionLocal, engine
+from models import Base, ModelVersion
 
 def seed():
+    print("Verifying database tables exist...")
+    Base.metadata.create_all(bind=engine)
+
     with SessionLocal() as db:
         active_model = db.query(ModelVersion).filter(ModelVersion.is_active == True).first()
 
         if not active_model:
-            print("No active model found in database. Creating reference to models/model.pt...")
+            print("No active model found in the database. Creating reference...")
             prod_model = ModelVersion(
                 name="v1-production",
-                weights_path="models/model.pt", 
+                weights_path="models/model.pt",
                 is_active=True,
                 metrics={"classes": ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]}
             )
             db.add(prod_model)
             db.commit()
-            print("Successfully seeded the database! Your model will load on next startup.")
+            print("Database setup and model tracking initialized successfully!")
         else:
-            print(
-                f"Database already has an active model record: '{active_model.name}' pointing to '{active_model.weights_path}'")
+            print(f"Active model record '{active_model.name}' already configured.")
 
 
 if __name__ == "__main__":
