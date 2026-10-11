@@ -1,4 +1,4 @@
-"""Cancer Detection bs
+"""Cancer Detection API
 
 Run:   uvicorn main:app --reload
 Documentation:  http://localhost:8000/docs
@@ -40,23 +40,24 @@ async def lifespan(app: FastAPI):
     app.state.model_version_id = None
     app.state.model_name = None
     try:
+        # Dynamically find the absolute path of the root directory on Render
+        BASE_DIR = Path(__file__).resolve().parent
+        fixed_weights_path = BASE_DIR / "models" / "model.pt"
+
         with SessionLocal() as db:
             mv = db.scalars(select(ModelVersion).where(ModelVersion.is_active).limit(1)).first()
-
             if mv:
-                base_dir = Path(__file__).resolve().parent
-                absolute_weights_path = base_dir / mv.weights_path
-
-                if absolute_weights_path.exists():
+                if fixed_weights_path.exists():
                     classes = (mv.metrics or {}).get("classes", DEFAULT_CLASSES)
-                    app.state.classifier = Classifier(str(absolute_weights_path), classes)
+                    # Pass the absolute server path directly, bypassing the broken DB path
+                    app.state.classifier = Classifier(str(fixed_weights_path), classes)
                     app.state.model_version_id = mv.id
                     app.state.model_name = mv.name
-                    log.info("Loaded model %s", mv.name)
+                    log.info("Loaded model %s from %s", mv.name, fixed_weights_path)
                 else:
-                    log.warning(f"Active model record found, but weights file missing at: {absolute_weights_path}")
+                    log.warning("Active model found in DB, but file is physically missing at: %s", fixed_weights_path)
             else:
-                log.warning("No active model found in the database. /predict will return 503.")
+                log.warning("No active model record found in the database. /predict will return 503.")
     except Exception:
         log.exception("Startup could not load a model (are the tables created?)")
     yield
@@ -171,6 +172,7 @@ def predict(
         model_version=request.app.state.model_name,
         disclaimer=config.DISCLAIMER,
     )
+
 
 @app.post("/feedback")
 def feedback(
